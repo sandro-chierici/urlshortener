@@ -3,7 +3,7 @@ package routes
 import (
 	"log"
 	"net/http"
-	"urlshortener/v2/internal/shortener"
+	"strings"
 	"urlshortener/v2/internal/types"
 
 	"github.com/gin-gonic/gin"
@@ -21,12 +21,14 @@ type urlBody struct {
 }
 
 // Mapping of exposed endpoints
-func MapRoutes(r *gin.Engine, reg types.Register, sh *shortener.SimpleShortener) {
+func MapRoutes(r *gin.Engine, reg types.Register) {
 
+	// Liveness probe for orchestrators
 	r.GET("/healthz/liveness", getLiveness)
 
+	// register an url and get shortened
 	r.POST("/u", func(ctx *gin.Context) {
-		shortendAndRegisterURL(ctx, reg, sh)
+		shortendAndRegisterURL(ctx, reg)
 	})
 
 	r.GET("/u/:code", func(ctx *gin.Context) {
@@ -40,7 +42,7 @@ func getLiveness(c *gin.Context) {
 }
 
 // register	new url
-func shortendAndRegisterURL(c *gin.Context, reg types.Register, sh *shortener.SimpleShortener) {
+func shortendAndRegisterURL(c *gin.Context, reg types.Register) {
 
 	// getting url to register from the body
 	var data urlBody
@@ -51,39 +53,31 @@ func shortendAndRegisterURL(c *gin.Context, reg types.Register, sh *shortener.Si
 
 	log.Printf("Register URL %s", data.Url)
 
-	// calculate shortened code
-	code := sh.Evaluate(data.Url)
+	code, err := reg.SetUrl(data.Url)
 
-	// for speed concern here I reply always ok
-	// and in parallel let's check cache for existance
-	go func() {
-
-		_, err := reg.GetShortened(code)
-		if err == nil {
-			// exists
-			return
-		}
-
-		// register in cacche
-		err = reg.SetUrl(data.Url, code)
-		if err != nil {
-			log.Printf("Error registering URL %s: %s", data.Url, err)
-			return
-		}
-	}()
-
-	c.JSON(http.StatusOK, Response{Status: "OK", Code: code})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{Status: "KO", Code: "", Err: err.Error()})
+	} else {
+		c.JSON(http.StatusOK, Response{Status: "OK", Code: code})
+	}
 }
 
 // Get registered URL
 func getShortened(c *gin.Context, reg types.Register) {
 
 	code := c.Param("code")
-	full, err := reg.GetShortened(code)
-	if err == nil {
-		// exists
-		c.JSON(http.StatusOK, Response{Status: "OK", Code: full})
+
+	// get off "/"
+	code = strings.Replace(code, "/", "", -1)
+	if code == "" {
+		c.JSON(http.StatusBadRequest, Response{Status: "KO", Code: "", Err: "Not found code into body"})
 		return
 	}
-	c.JSON(http.StatusBadRequest, Response{Status: "ERROR", Err: "Not Found"})
+
+	url, err := reg.GetUrl(code)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{Status: "KO", Code: "", Err: err.Error()})
+	} else {
+		c.JSON(http.StatusOK, Response{Status: "OK", Code: url})
+	}
 }

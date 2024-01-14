@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"urlshortener/v2/internal/encoders"
 	"urlshortener/v2/internal/register"
 	"urlshortener/v2/internal/routes"
-	"urlshortener/v2/internal/shortener"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,12 +21,13 @@ func main() {
 		port = "8080"
 	}
 
-	// concrete register implementation (Redis)
-	var reg = register.NewRedisRegister()
 	// shortener algo implementation
-	var shortener = shortener.New()
+	var encoder = encoders.New()
 
-	routes.MapRoutes(router, reg, shortener)
+	// concrete register implementation (in memory, redis isn't ready)
+	var reg = register.NewSimpleRegister(encoder)
+
+	routes.MapRoutes(router, reg)
 
 	http.ListenAndServe(fmt.Sprint(":", port), router)
 }

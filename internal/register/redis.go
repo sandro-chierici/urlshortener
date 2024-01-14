@@ -1,33 +1,33 @@
 package register
 
-import (
-	"errors"
-)
+import "urlshortener/v2/internal/types"
 
 type RedisRegister struct {
-	// in memory register only for test purpose
-	urls map[string]string
+	encoder types.Encoder
 }
 
-func NewRedisRegister() *RedisRegister {
+/*
+Build register
+*/
+func NewRedisRegister(enc types.Encoder) *RedisRegister {
 	var rr = new(RedisRegister)
-	rr.urls = make(map[string]string)
+	rr.encoder = enc
 	return rr
 }
 
-func (r *RedisRegister) SetUrl(url string, code string) error {
+/*
+Translate from  url to code
+*/
+func (r *RedisRegister) SetUrl(url string) (string, error) {
 
-	r.urls[code] = url
-	return nil
+	return "", nil
 }
 
-func (r *RedisRegister) GetShortened(code string) (string, error) {
+/*
+Translate from Code to url
+*/
+func (r *RedisRegister) GetUrl(code string) (string, error) {
 
-	// check if url exists
-	var url, exists = r.urls[code]
-	if !exists {
-		return "", errors.New("%s not exists")
-	} else {
-		return url, nil
-	}
+	// decode from code to index
+	return "", nil
 }
